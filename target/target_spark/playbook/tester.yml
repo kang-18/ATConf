@@ -1,0 +1,189 @@
+---
+- hosts: spark-master,spark-slave1,spark-slave2,spark-slave3
+  vars:
+    ansible_sudo_pass: wang@kang
+    db_name: spark
+    spark_home: "/home/wk/sd_spark/{{db_name}}/{{task_name}}"
+    local_sp_config_env: ../others/spark-env.sh
+    sp_config_env: "{{spark_home}}/spark/conf/spark-env.sh"
+    local_result_dir: "../results/{{task_name}}"
+  remote_user: wk 
+
+  pre_tasks:
+    - name: load app_config information
+      include_vars:
+        file: "{{local_result_dir}}/{{task_id}}_app_config.yml"
+        name: app_config
+  tasks:
+    - name: copy spark's spark-env.sh
+      template:
+        src: "{{local_sp_config_env}}"
+        dest: "{{sp_config_env}}"  
+
+- hosts: "{{host}}"
+  vars:
+    # required extra vars:
+    #   - host
+    #   - target
+    #   - task_name
+    #   - task_id
+    #   - task_rep
+    #   - workload_path
+    ansible_sudo_pass: wang@kang
+
+    db_name: spark
+    apt_requirements:
+      # - openjdk-8-jdk
+
+    tester_home: "/home/wk/sd_hibench/{{db_name}}/{{task_name}}"
+    spark_home: "/home/wk/sd_spark/{{db_name}}/{{task_name}}"
+    
+    local_sp_config_env: ../others/spark-env.sh
+    sp_config_env: "{{spark_home}}/spark/conf/spark-env.sh"
+    
+
+    local_tester_src: ../others/hibench.tar.gz
+    tester_src: "{{tester_home}}/../hibench.tar.tgz"
+    tester_server: "{{tester_home}}/hibench"
+
+    tester_conf: "{{tester_server}}/conf"
+    tester_bin: "{{tester_server}}/bin/workloads"
+
+    local_hadoop_config_template: ../others/hibench/hadoop.conf
+    local_hibench_config_template: ../others/hibench/hibench.conf
+    local_spark_config_template: ../others/hibench/spark.conf
+    hadoop_config: "{{tester_conf}}/hadoop.conf"
+    hibench_config: "{{tester_conf}}/hibench.conf"
+    spark_config: "{{tester_conf}}/spark.conf"
+    
+    local_re_report_py_template: ../re_report.py
+    re_report_py: "{{tester_server}}/report"
+
+    # this file/workload is /target_spark/workload/work.conf
+    local_hibench_workload: "{{workload_path}}"
+    hibench_workload: "{{tester_home}}/tearsort.conf"
+
+
+    old_result_path: "{{tester_server}}/report/hibench"
+    local_result_dir: "../results/{{task_name}}"
+
+    n_client: 16
+  remote_user: wk
+  pre_tasks:
+    - name: load app_config information
+      include_vars:
+        file: "{{local_result_dir}}/{{task_id}}_app_config.yml"
+        name: app_config
+    - name: ensure jdk
+      apt:
+        name: "{{apt_requirements}}"
+      become: yes
+    - name: create folders
+      with_items:
+        - "{{tester_home}}"
+      file:
+        path: "{{item}}"
+        state: directory
+        recurse: yes
+    - name: copy archive
+      copy:
+        src: "{{local_tester_src}}"
+        dest: "{{tester_src}}"
+    - name: unarchive
+      unarchive:
+        src: "{{tester_src}}"
+        dest: "{{tester_home}}"
+        remote_src: yes
+
+    - name: copy hibench workload
+      copy:
+        src: "{{local_hibench_workload}}"
+        dest: "{{hibench_workload}}"
+     
+    - name: copy hadoop config
+      template:
+        src: "{{local_hadoop_config_template}}"
+        dest: "{{hadoop_config}}"
+    - name: copy hibench config
+      template:
+        src: "{{local_hibench_config_template}}"
+        dest: "{{hibench_config}}"
+    - name: copy spark config
+      template:
+        src: "{{local_spark_config_template}}"
+        dest: "{{spark_config}}"
+        
+    - name: copy re_report.py
+      template:
+        src: "{{local_re_report_py_template}}"
+        dest: "{{re_report_py}}"
+
+#    - name: data prepare
+#      shell: "JAVA_HOME=/usr/lib/jvm/jdk1.8.0_211 {{tester_bin}}/micro/wordcount/prepare/prepare.sh"
+#      async: 600
+#      poll: 5
+#      when: "{{task_id}} == 0 and {{task_rep}} ==0"
+
+
+
+    - name: start spark_standlone
+      shell: "JAVA_HOME=/usr/lib/jvm/jdk1.8.0_211 {{spark_home}}/spark/sbin/start-all.sh"
+
+
+    - name: running
+      shell: "JAVA_HOME=/usr/lib/jvm/jdk1.8.0_211 {{tester_bin}}/micro/terasort/spark/run.sh"
+      async: 1000
+      poll: 30
+      ignore_errors: true
+      
+    - name: stop spark_standlone
+      shell: "JAVA_HOME=/usr/lib/jvm/jdk1.8.0_211 {{spark_home}}/spark/sbin/stop-all.sh"
+
+#    - name: kill hadoop
+#      shell: "JAVA_HOME=/usr/lib/jvm/jdk1.8.0_211 /home/wk/sd_hadoop/spark/spark-bodropout-test/hadoop/sbin/stop-all.sh"
+#    - name: wait 
+#      shell: "sleep 60s"
+
+    - name: hibench_report re_format
+      shell: "python3 /home/wk/sd_hibench/spark/spark-bodropout-test/hibench/report/re_report.py"
+      ignore_errors: true
+      
+    - name: fetch run result
+      fetch:
+        src: "{{old_result_path}}"
+        dest: "{{local_result_dir}}/{{task_id}}_run_result_{{task_rep}}"
+        flat: yes
+      ignore_errors: true
+      
+    - name: clear report
+      file:
+        path: "{{tester_server}}/report"
+        state: "{{item}}"
+      with_items:
+        - absent
+        - directory
+        
+- hosts: spark-master,spark-slave1,spark-slave2,spark-slave3
+  vars:
+    ansible_sudo_pass: wang@kang
+    db_name: spark
+    spark_home: "/home/wk/sd_spark/{{db_name}}/{{task_name}}"
+    spark_logs: "{{spark_home}}/spark/logs"
+    spark_work: "{{spark_home}}/spark/work"
+  remote_user: wk 
+  
+  tasks:
+    - name: clear spark_logs
+      file:
+        path: "{{spark_logs}}"
+        state: "{{item}}"
+      with_items:
+        - absent
+        - directory
+    - name: clear spark_work
+      file:
+        path: "{{spark_work}}"
+        state: "{{item}}"
+      with_items:
+        - absent
+        - directory

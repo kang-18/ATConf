@@ -1,0 +1,35 @@
+---
+  swappiness:
+    file: /proc/sys/vm/swappiness
+    min: 0
+    max: 100
+    default: 60
+   # bucket_num: 7
+    # float: yes # enable this to allow it to be non-int
+  dirty_ratio:
+    file: /proc/sys/vm/dirty_ratio
+    min: 10
+    max: 100
+    default: 20
+    bucket_num: 6
+  dirty_background_ratio:
+    file: /proc/sys/vm/dirty_background_ratio
+    min: 0
+    max: 100
+    default: 10
+  dirty_expire_centisecs:
+    file: /proc/sys/vm/dirty_expire_centisecs
+    min: 100
+    max: 10000
+    default: 3000
+
+  nr_requests:
+    file: /sys/block/sda/queue/nr_requests
+    min: 64
+    max: 256
+    default: 128
+  read_ahead_kb:
+    file: /sys/block/sda/queue/read_ahead_kb
+    min: 64
+    max: 512
+    default: 128

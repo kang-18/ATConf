@@ -1,0 +1,78 @@
+---
+- hosts: spark-master,spark-slave1,spark-slave2,spark-slave3
+  vars:
+    # required extra vars:
+    #   - host
+    #   - task_name
+    #   - task_id
+    home_dir: "/home/wk/sd_spark/os_config_backup"
+    local_result_dir: "../results/{{task_name}}"
+    ansible_sudo_pass: wang@kang
+    os_configs_info:
+    sampled_config_file: "../results/{{task_name}}/{{task_id}}_os_config.yml"
+  remote_user: wk
+  pre_tasks:
+    - name: load os_config information
+      include_vars:
+        file: ../os_configs_info.yml
+        name: os_configs_info
+      tags:
+        - cleanup
+        - always
+    - name: ensure home dir
+      file:
+        path: "{{home_dir}}"
+        recurse: yes
+    - name: backup
+      with_dict: "{{os_configs_info}}"
+      shell: "cp -n {{item.value.file}} {{home_dir}}/{{item.key}}" # -n for no overwrite
+      when: "not item.value.get('complex', False)"
+  tasks: # set configs specified by sampled values
+    - name: read sampled os config
+      include_vars:
+        file: "{{sampled_config_file}}"
+        name: sample
+    - name: set os configs
+      with_dict: "{{os_configs_info}}"
+      shell: "echo {{sample[item.key]}} > {{item.value.file}}"
+      when: "not item.value.get('complex', False)"
+      become: yes
+    - name: set complex os configs
+      with_dict: "{{os_configs_info}}"
+      shell: "{{item.value.cmd_before}}{{sample[item.key]}}{{item.value.cmd_after}}"
+      args:
+        warn: no
+      when: "item.value.get('complex', False)"
+      become: yes
+    - name: activate all configs
+      shell: "sysctl -p" # is it needed?? https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/6/html/deployment_guide/s2-proc-dir-sys
+      become: yes
+  post_tasks:
+    - name: check if backup exists
+      stat:
+        path: "{{home_dir}}"
+      register: stat_result
+      tags:
+        - cleanup
+        - never # prevent this task being run by default
+    - tags:
+        - cleanup
+        - never
+      when: "stat_result.stat.exists"
+      block:
+        - name: restore os configs
+          with_dict: "{{os_configs_info}}"
+          shell: "echo $(cat {{home_dir}}/{{item.key}}) > {{item.value.file}} || echo {{item.value.get('restore_fallback')}} > {{item.value.file}}" # if first restoring failed, try to use 'restore_fallback'
+          when: "not item.value.get('complex', False)"
+          become: yes
+        - name: restore complex os configs
+          with_dict: "{{os_configs_info}}"
+          shell: "{{item.value.cmd_before}}{{item.value.default}}{{item.value.cmd_after}}"
+          args:
+            warn: no
+          when: "item.value.get('complex', False)"
+          become: yes
+        - name: clear backup
+          file:
+            path: "{{home_dir}}"
+            state: absent

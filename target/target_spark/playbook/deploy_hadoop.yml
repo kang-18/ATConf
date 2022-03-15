@@ -1,0 +1,162 @@
+---
+- hosts: "{{host}}"
+  remote_user: wk
+  vars:
+    # required extra vars:
+    #   - host
+    #   - task_name
+    #   - task_id
+    #   - task_rep
+    ansible_sudo_pass: wang@kang
+
+    db_name: spark
+    apt_requirements:
+      # - libcurl4
+    deploy_home: "/home/wk/sd_hadoop/{{db_name}}/{{task_name}}"
+    local_ha_src: ../others/hadoop.tar.gz
+    ha_src: "{{deploy_home}}/../hadoop.tar.gz"
+    ha_server: "{{deploy_home}}/hadoop"
+    
+    # this path is your hosts for deploying hadoop master
+    hdfs_example_file_path: "/home/wk/Downloads/Input"
+    
+    hdfs_file_path: "/user/hadoop/HiBench"
+    load_to_path: "{{hdfs_file_path}}/Terasort"
+
+    tmpfile: "{{ha_server}}/tmp"
+    datafile: "{{ha_server}}/dfs/data"
+    namefile: "{{ha_server}}/dfs/name"
+    logsfile: "{{ha_server}}/logs"
+    
+    local_ha_config_core_site: ../others/core-site.xml
+    ha_config_core_site: "{{ha_server}}/etc/hadoop/core-site.xml"
+    
+    local_ha_config_hdfs_site: ../others/hdfs-site.xml
+    ha_config_hdfs_site: "{{ha_server}}/etc/hadoop/hdfs-site.xml"
+
+    local_ha_config_mapred_site: ../others/mapred-site.xml
+    ha_config_mapred_site: "{{ha_server}}/etc/hadoop/mapred-site.xml"
+    
+    local_ha_config_yarn_site: ../others/yarn-site.xml
+    ha_config_yarn_site: "{{ha_server}}/etc/hadoop/yarn-site.xml"
+    
+    local_ha_config_slaves: ../others/slaves
+    ha_config_slaves: "{{ha_server}}/etc/hadoop/slaves"
+
+
+  pre_tasks: # set up a clean env
+    - name: check requirements
+      apt:
+        name: "{{apt_requirements}}"
+      become: yes
+    - name: create folders
+      with_items:
+        - "{{deploy_home}}"
+      file:
+        path: "{{item}}"
+        state: directory
+        recurse: yes
+    - name: copy archive
+      copy:
+        src: "{{local_ha_src}}"
+        dest: "{{ha_src}}"
+    - name: unarchive
+      unarchive:
+        src: "{{ha_src}}"
+        dest: "{{deploy_home}}"
+        remote_src: yes
+
+  tasks:
+    - name: clear tmp
+      file:
+        path: "{{tmpfile}}"
+        state: "{{item}}"
+      with_items:
+        - absent
+        - directory
+    - name: clear name
+      file:
+        path: "{{namefile}}"
+        state: "{{item}}"
+      with_items:
+        - absent
+        - directory
+    - name: clear data
+      file:
+        path: "{{datafile}}"
+        state: "{{item}}"
+      with_items:
+        - absent
+        - directory
+    - name: clear logs
+      file:
+        path: "{{logsfile}}"
+        state: "{{item}}"
+      with_items:
+        - absent
+        - directory
+
+    - name: copy core-site
+      template:
+        src: "{{local_ha_config_core_site}}"
+        dest: "{{ha_config_core_site}}"
+
+    - name: copy hdfs-stie
+      template:
+        src: "{{local_ha_config_hdfs_site}}"
+        dest: "{{ha_config_hdfs_site}}"
+
+    - name: copy mapred-stie
+      template:
+        src: "{{local_ha_config_mapred_site}}"
+        dest: "{{ha_config_mapred_site}}"
+        
+    - name: copy yarn-stie
+      template:
+        src: "{{local_ha_config_yarn_site}}"
+        dest: "{{ha_config_yarn_site}}"
+
+    - name: copy slaves
+      template:
+        src: "{{local_ha_config_slaves}}"
+        dest: "{{ha_config_slaves}}"
+    
+    - name: copy spark_shuffle_jar
+      shell: "cp /home/wk/sd_spark/spark/spark-bodropout-test/spark/yarn/spark-2.2.2-yarn-shuffle.jar {{ha_server}}/share/hadoop/yarn/lib/"
+      ignore_errors: true
+      
+    - name: namenode format
+      shell: "JAVA_HOME=/usr/lib/jvm/jdk1.8.0_211 {{ha_server}}/bin/hadoop namenode -format || true"
+      ignore_errors: true
+      when: host =="spark-master"
+
+
+    - name: start hadoop
+      shell: "JAVA_HOME=/usr/lib/jvm/jdk1.8.0_211 {{ha_server}}/sbin/start-all.sh"
+      when: host =="spark-master"
+      
+    - name: namenode safemode leave
+      shell: "JAVA_HOME=/usr/lib/jvm/jdk1.8.0_211 {{ha_server}}/bin/hadoop dfsadmin -safemode leave || true"
+      ignore_errors: true
+      when: host =="spark-master"       
+
+    - name: mkdir spark_jars
+      shell: "JAVA_HOME=/usr/lib/jvm/jdk1.8.0_211 {{ha_server}}/bin/hadoop fs -mkdir -p /spark-yarn/jars"
+      when: host =="spark-master"
+      
+    - name: mkdir examples hdfs
+      shell: "JAVA_HOME=/usr/lib/jvm/jdk1.8.0_211 {{ha_server}}/bin/hadoop fs -mkdir -p {{load_to_path}}"
+      when: host =="spark-master"
+
+    - name: upload spark_jars
+      shell: "JAVA_HOME=/usr/lib/jvm/jdk1.8.0_211 {{ha_server}}/bin/hadoop fs -put /home/wk/sd_spark/spark/spark-bodropout-test/spark/jars/* /spark-yarn/jars || true"
+      ignore_errors: true
+      when: host =="spark-master"
+      
+    - name: load examples to HDFS
+      shell: "JAVA_HOME=/usr/lib/jvm/jdk1.8.0_211 {{ha_server}}/bin/hdfs dfs -put {{hdfs_example_file_path}} {{load_to_path}}"
+      async: 1200
+      poll: 60
+      when: "{{task_id}} ==0 and {{task_rep}} ==0 and host=='spark-master'"
+
+

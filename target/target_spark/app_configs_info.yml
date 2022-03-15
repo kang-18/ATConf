@@ -1,0 +1,210 @@
+---
+  spark_default_parallelism:
+    min: 8
+    max: 128
+    default: 32
+  spark_sql_shuffle_partitions:
+    min: 100
+    max: 800
+    default: 200
+
+  spark_driver_cores:
+    min: 1
+    max: 4
+    default: 1
+  spark_driver_maxResultSize:
+    min: 1
+    max: 4
+    default: 1
+  spark_driver_memory:
+    min: 1024
+    max: 4028
+    default: 1024
+  spark_executor_memory:
+    min: 1024
+    max: 4028
+    default: 1024
+
+  spark_reducer_maxSizeInFlight:
+    min: 2
+    max: 128
+    default: 48
+  spark_shuffle_compress:
+    range:
+        - "true"
+        - "false"
+    default: "true"
+  spark_shuffle_file_buffer:
+    min: 2
+    max: 128
+    default: 32
+  spark_shuffle_service_index_cache_entries:
+    min: 512
+    max: 2048
+    default: 1024
+  spark_shuffle_sort_bypassMergeThreshold:
+    min: 100
+    max: 1000
+    default: 200
+  spark_shuffle_spill_compress:
+    range:
+        - "false"
+        - "true"
+    default: "true"
+  spark_shuffle_accurateBlockThreshold:
+    min: 10485760
+    max: 1048576000
+    default: 104857600
+    
+    
+
+    
+  spark_broadcast_compress:
+    range:
+        - "false"
+        - "true"
+    default: "true"
+  spark_io_compression_codec:
+    range:
+        - "lz4"
+        - "lzf"
+        - "snappy"
+    default: "lz4"
+  spark_io_compression_blockSize:
+    min: 2
+    max: 128
+    default: 32
+  spark_kryo_referenceTracking:
+    range:
+        - "false"
+        - "true"
+    default: "true"
+  spark_kryoserializer_buffer_max:
+    min: 8
+    max: 128
+    default: 64
+  spark_kryoserializer_buffer:
+    min: 2
+    max: 128
+    default: 64
+  spark_rdd_compress:
+    range:
+        - "true"
+        - "false"
+    default: "false"
+  spark_serializer:
+    range:
+        - "org.apache.spark.serializer.KryoSerializer"
+        - "org.apache.spark.serializer.JavaSerializer"
+    default: "org.apache.spark.serializer.JavaSerializer"
+    
+  spark_memory_fraction:
+    min: 0.3
+    max: 0.9
+    float: yes
+    default: 0.6
+  spark_memory_storageFraction:
+    min: 0.3
+    max: 0.9
+    float: yes
+    default: 0.5
+  spark_memory_offHeap_enabled:
+    range:
+        - "false"
+        - "true"
+    default: "false"
+  spark_memory_offHeap_size:
+    min: 10
+    max: 1024
+    default: 10
+
+
+  spark_broadcast_blockSize:
+    min: 2
+    max: 128
+    default: 4
+  spark_executor_cores:
+    min: 1
+    max: 4
+    default: 3
+  spark_executor_heartbeatInterval:
+    min: 5
+    max: 50
+    default: 10
+  spark_storage_memoryMapThreshold:
+    min: 2
+    max: 200
+    default: 2
+
+  spark_network_timeout:
+    min: 120
+    max: 500
+    default: 120
+    
+  spark_locality_wait:
+    min: 2
+    max: 10
+    default: 3
+  spark_scheduler_revive_interval:
+    min: 1
+    max: 50
+    default: 1
+  spark_speculation:
+    range:
+        - "false"
+        - "true"
+    default: "false"
+  spark_speculation_interval:
+    min: 10
+    max: 1000
+    default: 100
+  spark_speculation_quantile:
+    min: 0.3
+    max: 0.9
+    float: yes
+    default: 0.75
+  spark_speculation_multiplier:
+    min: 1.1
+    max: 5.0
+    float: yes
+    default: 1.5
+  spark_task_maxFailures:
+    min: 3
+    max: 10
+    default: 4
+
+  jvm_gc_collect:
+    range:
+      - "+UseSerialGC"
+      - "+UseParallelGC"
+      - "+UseConcMarkSweepGC"
+      - "+UseG1GC"
+    default: "+UseParallelGC"
+  jvm_gc_timeratio:
+    min: 19
+    max: 99
+    default: 99
+  jvm_max_gc_pause:
+    min: 100
+    max: 500
+    default: 200
+  jvm_max_tenuringThreshold:
+    min: 1
+    max: 15
+    default: 3
+  jvm_new_ratio:
+    min: 1
+    max: 9
+    default: 2
+  jvm_par_gc_thread:
+    min: 1
+    max: 8
+    default: 3
+  jvm_survivor_ratio:
+    min: 1
+    max: 9
+    default: 8
+    
+    
+    
+    

@@ -1,0 +1,15 @@
+---
+  target: hbase
+  task_name: #input
+  # extract:
+  metric:
+    len: yes
+    mean: yes
+    stdev: yes
+    CI_upper: yes
+    CI_lower: yes
+    CI_r: yes
+    percent: yes
+  overwrite: yes
+  tester: ycsb
+  # out
